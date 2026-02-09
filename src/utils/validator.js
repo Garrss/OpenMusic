@@ -26,4 +26,35 @@ const SongUpdateSchema = Joi.object({
   albumId: Joi.string().optional(),
 });
 
-module.exports = { AlbumPayloadSchema, SongPayloadSchema, SongUpdateSchema };
+// Users & Authentications
+const UserPayloadSchema = Joi.object({
+  username: Joi.string().required(),
+  password: Joi.string().required(),
+  fullname: Joi.string().required(),
+});
+
+const AuthenticationPayloadSchema = Joi.object({
+  username: Joi.string().required(),
+  password: Joi.string().required(),
+});
+
+const RefreshTokenPayloadSchema = Joi.object({
+  refreshToken: Joi.string().required(),
+});
+
+// Playlists
+const PlaylistPayloadSchema = Joi.object({
+  name: Joi.string().required(),
+});
+
+const PlaylistSongPayloadSchema = Joi.object({
+  songId: Joi.string().required(),
+});
+
+// Collaborations
+const CollaborationPayloadSchema = Joi.object({
+  playlistId: Joi.string().required(),
+  userId: Joi.string().required(),
+});
+
+module.exports = { AlbumPayloadSchema, SongPayloadSchema, SongUpdateSchema, UserPayloadSchema, AuthenticationPayloadSchema, RefreshTokenPayloadSchema, PlaylistPayloadSchema, PlaylistSongPayloadSchema, CollaborationPayloadSchema };

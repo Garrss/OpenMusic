@@ -1,12 +1,12 @@
 const successResponse = (
   res,
-  { data = null, message = null, statusCode = 200 },
+  { data = undefined, message = null, statusCode = 200 },
 ) => {
   const response = {
     status: 'success',
   };
 
-  if (data) {
+  if (data !== undefined) {
     response.data = data;
   }
 
@@ -14,6 +14,7 @@ const successResponse = (
     response.message = message;
   }
 
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   return res.status(statusCode).json(response);
 };
 
@@ -31,4 +32,21 @@ const errorResponse = (res, { message, statusCode = 500 }) => {
   });
 };
 
-module.exports = { successResponse, failResponse, errorResponse };
+const unauthorizedResponse = (res, { message = 'Missing authentication' }) => {
+  return res.status(401).json({
+    status: 'fail',
+    message,
+  });
+};
+
+const forbiddenResponse = (
+  res,
+  { message = 'Anda tidak berhak mengakses resource ini' },
+) => {
+  return res.status(403).json({
+    status: 'fail',
+    message,
+  });
+};
+
+module.exports = { successResponse, failResponse, errorResponse, unauthorizedResponse, forbiddenResponse };

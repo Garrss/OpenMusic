@@ -14,15 +14,19 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "joi": "^18.0.2",
+    "jsonwebtoken": "^9.0.3",
     "nanoid": "^5.1.6",
     "node-pg-migrate": "^8.0.4",
     "pg": "^8.18.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@types/bcrypt": "^6.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "eslint": "^9.39.2",
     "eslint-config-dicodingacademy": "^0.9.5",
     "globals": "^17.3.0",
