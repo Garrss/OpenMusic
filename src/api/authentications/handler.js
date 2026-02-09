@@ -26,17 +26,14 @@ class AuthenticationsHandler {
 
       const { username, password } = req.body;
 
-      // Verify credential
       const id = await this._usersService.verifyUserCredential({
         username,
         password,
       });
 
-      // Generate tokens
       const accessToken = TokenManager.generateAccessToken({ id });
       const refreshToken = TokenManager.generateRefreshToken({ id });
 
-      // Store refresh token
       await this._authenticationsService.addRefreshToken(refreshToken);
 
       return successResponse(res, {
@@ -69,11 +66,9 @@ class AuthenticationsHandler {
 
       const { refreshToken } = req.body;
 
-      // Verify refresh token
       await this._authenticationsService.verifyRefreshToken(refreshToken);
       const { id } = TokenManager.verifyRefreshToken(refreshToken);
 
-      // Generate new access token
       const accessToken = TokenManager.generateAccessToken({ id });
 
       return successResponse(res, {
@@ -96,7 +91,6 @@ class AuthenticationsHandler {
 
       const { refreshToken } = req.body;
 
-      // Delete refresh token
       await this._authenticationsService.deleteRefreshToken(refreshToken);
 
       return successResponse(res, {

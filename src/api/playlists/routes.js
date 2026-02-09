@@ -78,20 +78,37 @@ router.post(
 
 router.get('/:id/songs', authMiddleware, playlistsHandler.getSongsFromPlaylist);
 
+// Perbaiki route DELETE /:id/songs
 router.delete(
   '/:id/songs',
   authMiddleware,
   (req, res, next) => {
+    console.log('\n=== DELETE /:id/songs DEBUG ===');
+    console.log('Body:', req.body);
+    console.log('Params:', req.params);
+
     const { songId } = req.body;
-    if (!songId) {
+
+    // Validasi: songId harus ada dan berupa string
+    if (!songId || typeof songId !== 'string' || songId.trim() === '') {
+      console.log('Invalid payload - songId missing or invalid');
       return res.status(400).json({
         status: 'fail',
-        message: 'songId harus diisi',
+        message: 'songId harus diisi dan berupa string',
       });
     }
+    // Validasi tambahan: songId harus sesuai format
+    if (!songId.startsWith('song-')) {
+      console.log('Invalid songId format');
+      return res.status(400).json({
+        status: 'fail',
+        message: 'songId tidak valid',
+      });
+    }
+    console.log('Payload validation passed');
     next();
   },
-  playlistsHandler.deleteSongFromPlaylist,
+  playlistsHandler.deleteSongFromPlaylist
 );
 
 /**

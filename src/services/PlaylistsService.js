@@ -219,33 +219,55 @@ class PlaylistsService {
   }
 
   // Method untuk activities (Opsional 2)
+  // Method untuk activities (Opsional 2)
   async addActivity(playlistId, songId, userId, action) {
     const id = `activity-${nanoid(16)}`;
 
+    console.log('\n=== ADDING ACTIVITY ===');
+    console.log('Playlist ID:', playlistId);
+    console.log('Song ID:', songId);
+    console.log('User ID:', userId);
+    console.log('Action:', action);
+
     const query = {
-      text: 'INSERT INTO playlist_song_activities VALUES($1, $2, $3, $4, $5) RETURNING id',
+      text: 'INSERT INTO playlist_song_activities VALUES($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING id',
       values: [id, playlistId, songId, userId, action],
     };
 
-    await db.query(query);
+    try {
+      const result = await db.query(query);
+      console.log('Activity added successfully:', result.rows[0].id);
+      return result.rows[0].id;
+    } catch (error) {
+      console.log('Activity insert error:', error.message);
+      throw error;
+    }
   }
 
   async getActivities(playlistId) {
+    console.log('\n=== GETTING ACTIVITIES ===');
+    console.log('Playlist ID:', playlistId);
+
     const query = {
       text: `SELECT
-               u.username,
-               s.title,
-               psa.action,
-               psa.time
-             FROM playlist_song_activities psa
-             JOIN users u ON psa.user_id = u.id
-             JOIN songs s ON psa.song_id = s.id
-             WHERE psa.playlist_id = $1
-             ORDER BY psa.time DESC`,
+             u.username,
+             s.title,
+             psa.action,
+             psa.time
+           FROM playlist_song_activities psa
+           JOIN users u ON psa.user_id = u.id
+           JOIN songs s ON psa.song_id = s.id
+           WHERE psa.playlist_id = $1
+           ORDER BY psa.time ASC`, // ASC untuk chronological order
       values: [playlistId],
     };
 
     const result = await db.query(query);
+    console.log('Activities found:', result.rows.length);
+    result.rows.forEach((row, i) => {
+      console.log(`Activity ${i + 1}:`, row);
+    });
+
     return result.rows;
   }
 }
