@@ -6,37 +6,27 @@ const { CollaborationPayloadSchema } = require('../../utils/validator');
 const router = express.Router();
 const collaborationsHandler = new CollaborationsHandler();
 
-// POST collaborations
+const validateCollaborationPayload = (req, res, next) => {
+  const { error } = CollaborationPayloadSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      status: 'fail',
+      message: error.message,
+    });
+  }
+  next();
+};
+
 router.post(
   '/',
   authMiddleware,
-  (req, res, next) => {
-    const { error } = CollaborationPayloadSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({
-        status: 'fail',
-        message: error.message,
-      });
-    }
-    next();
-  },
+  validateCollaborationPayload,
   collaborationsHandler.postCollaboration,
 );
-
-// DELETE collaborations
 router.delete(
   '/',
   authMiddleware,
-  (req, res, next) => {
-    const { error } = CollaborationPayloadSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({
-        status: 'fail',
-        message: error.message,
-      });
-    }
-    next();
-  },
+  validateCollaborationPayload,
   collaborationsHandler.deleteCollaboration,
 );
 

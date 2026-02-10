@@ -1,39 +1,34 @@
-const UsersService = require('../../services/UsersService');
-const { UserPayloadSchema } = require('../../utils/validator');
-const {
-  successResponse,
-  failResponse,
-  errorResponse,
-} = require('../../utils/response');
-
 class UsersHandler {
-  constructor() {
-    this._service = new UsersService();
+  constructor(service) {
+    this._service = service;
   }
 
   postUser = async (req, res) => {
     try {
-      const { error } = UserPayloadSchema.validate(req.body);
-      if (error) {
-        return failResponse(res, { message: error.message });
-      }
-
       const { username, password, fullname } = req.body;
+
       const userId = await this._service.addUser({
         username,
         password,
         fullname,
       });
 
-      return successResponse(res, {
+      return res.status(201).json({
+        status: 'success',
         data: { userId },
-        statusCode: 201,
       });
     } catch (error) {
       if (error.message === 'Username sudah digunakan') {
-        return failResponse(res, { message: error.message });
+        return res.status(400).json({
+          status: 'fail',
+          message: error.message,
+        });
       }
-      return errorResponse(res, { message: error.message });
+
+      return res.status(500).json({
+        status: 'error',
+        message: error.message,
+      });
     }
   };
 }

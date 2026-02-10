@@ -4,22 +4,13 @@ const db = require('../config/database');
 
 class UsersService {
   async addUser({ username, password, fullname }) {
-    // Cek username unik
-    const checkQuery = {
-      text: 'SELECT username FROM users WHERE username = $1',
-      values: [username],
-    };
 
-    const existingUser = await db.query(checkQuery);
-    if (existingUser.rows.length > 0) {
+    const existingUser = await this._checkUsernameExists(username);
+    if (existingUser) {
       throw new Error('Username sudah digunakan');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(
-      password,
-      parseInt(process.env.BCRYPT_SALT_ROUNDS || 10),
-    );
+    const hashedPassword = await this._hashPassword(password);
     const id = `user-${nanoid(16)}`;
 
     const query = {
@@ -29,7 +20,7 @@ class UsersService {
 
     const result = await db.query(query);
 
-    if (!result.rows[0].id) {
+    if (!result.rows[0]?.id) {
       throw new Error('User gagal ditambahkan');
     }
 
@@ -37,25 +28,18 @@ class UsersService {
   }
 
   async verifyUserCredential({ username, password }) {
-    const query = {
-      text: 'SELECT id, password FROM users WHERE username = $1',
-      values: [username],
-    };
+    const user = await this._getUserByUsername(username);
 
-    const result = await db.query(query);
-
-    if (!result.rows.length) {
+    if (!user) {
       throw new Error('Username tidak ditemukan');
     }
 
-    const { id, password: hashedPassword } = result.rows[0];
-    const isPasswordValid = await bcrypt.compare(password, hashedPassword);
-
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new Error('Password salah');
     }
 
-    return id;
+    return user.id;
   }
 
   async getUserById(id) {
@@ -86,6 +70,31 @@ class UsersService {
     }
 
     return result.rows[0].username;
+  }
+
+  async _checkUsernameExists(username) {
+    const query = {
+      text: 'SELECT id FROM users WHERE username = $1',
+      values: [username],
+    };
+
+    const result = await db.query(query);
+    return result.rows.length > 0;
+  }
+
+  async _getUserByUsername(username) {
+    const query = {
+      text: 'SELECT id, password FROM users WHERE username = $1',
+      values: [username],
+    };
+
+    const result = await db.query(query);
+    return result.rows[0] || null;
+  }
+
+  async _hashPassword(password) {
+    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || 10);
+    return bcrypt.hash(password, saltRounds);
   }
 }
 

@@ -1,25 +1,22 @@
 require('dotenv').config();
 const express = require('express');
 
-// Routes V1
+// Routes
 const albumsRoutes = require('./api/albums/routes');
 const songsRoutes = require('./api/songs/routes');
-
-// Routes V2
 const usersRoutes = require('./api/users/routes');
 const authenticationsRoutes = require('./api/authentications/routes');
 const playlistsRoutes = require('./api/playlists/routes');
-const collaborationsRoutes = require('./api/collaborations/routes'); // Opsional
+const collaborationsRoutes = require('./api/collaborations/routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const HOST = process.env.HOST || 'localhost';
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS
+// CORS Middleware
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header(
@@ -30,17 +27,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// V1 Routes (tidak butuh auth)
+// API Routes
 app.use('/albums', albumsRoutes);
 app.use('/songs', songsRoutes);
-
-// V2 Routes
 app.use('/users', usersRoutes);
 app.use('/authentications', authenticationsRoutes);
 app.use('/playlists', playlistsRoutes);
-app.use('/collaborations', collaborationsRoutes); // Opsional
+app.use('/collaborations', collaborationsRoutes);
 
-// Health check
+// Health Check
 app.get('/', (req, res) => {
   res.json({
     message: 'OpenMusic API V2',
@@ -49,8 +44,8 @@ app.get('/', (req, res) => {
   });
 });
 
-// 404 Handler
-app.use((req, res) => {
+// 404 Handler - SEDERHANA TANPA PATTERN
+app.use((req, res,) => {
   res.status(404).json({
     status: 'fail',
     message: 'Route tidak ditemukan',
@@ -59,14 +54,14 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err, req, res,) => {
-  console.error('Server Error:', err.stack);
+  console.error('Server Error:', err.message);
   res.status(500).json({
     status: 'error',
     message: 'Terjadi kesalahan pada server',
   });
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`Server berjalan pada http://${HOST}:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server berjalan pada http://localhost:${PORT}`);
   console.log('OpenMusic API V2 Ready!');
 });

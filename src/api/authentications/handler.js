@@ -1,15 +1,6 @@
 const UsersService = require('../../services/UsersService');
 const AuthenticationsService = require('../../services/AuthenticationsService');
 const TokenManager = require('../../utils/token');
-const {
-  AuthenticationPayloadSchema,
-  RefreshTokenPayloadSchema,
-} = require('../../utils/validator');
-const {
-  successResponse,
-  failResponse,
-  errorResponse,
-} = require('../../utils/response');
 
 class AuthenticationsHandler {
   constructor() {
@@ -19,11 +10,6 @@ class AuthenticationsHandler {
 
   postAuthentication = async (req, res) => {
     try {
-      const { error } = AuthenticationPayloadSchema.validate(req.body);
-      if (error) {
-        return failResponse(res, { message: error.message });
-      }
-
       const { username, password } = req.body;
 
       const id = await this._usersService.verifyUserCredential({
@@ -36,34 +22,17 @@ class AuthenticationsHandler {
 
       await this._authenticationsService.addRefreshToken(refreshToken);
 
-      return successResponse(res, {
-        data: {
-          accessToken,
-          refreshToken,
-        },
-        statusCode: 201,
+      return res.status(201).json({
+        status: 'success',
+        data: { accessToken, refreshToken },
       });
     } catch (error) {
-      if (
-        error.message === 'Username tidak ditemukan' ||
-        error.message === 'Password salah'
-      ) {
-        return failResponse(res, {
-          message: 'Kredensial yang Anda berikan salah',
-          statusCode: 401,
-        });
-      }
-      return errorResponse(res, { message: error.message });
+      return this._handleAuthError(res, error);
     }
   };
 
   putAuthentication = async (req, res) => {
     try {
-      const { error } = RefreshTokenPayloadSchema.validate(req.body);
-      if (error) {
-        return failResponse(res, { message: error.message });
-      }
-
       const { refreshToken } = req.body;
 
       await this._authenticationsService.verifyRefreshToken(refreshToken);
@@ -71,37 +40,62 @@ class AuthenticationsHandler {
 
       const accessToken = TokenManager.generateAccessToken({ id });
 
-      return successResponse(res, {
+      return res.status(200).json({
+        status: 'success',
         data: { accessToken },
       });
     } catch (error) {
-      if (error.message === 'Refresh token tidak valid') {
-        return failResponse(res, { message: error.message });
-      }
-      return errorResponse(res, { message: error.message });
+      return this._handleTokenError(res, error);
     }
   };
 
   deleteAuthentication = async (req, res) => {
     try {
-      const { error } = RefreshTokenPayloadSchema.validate(req.body);
-      if (error) {
-        return failResponse(res, { message: error.message });
-      }
-
       const { refreshToken } = req.body;
 
       await this._authenticationsService.deleteRefreshToken(refreshToken);
 
-      return successResponse(res, {
+      return res.status(200).json({
+        status: 'success',
         message: 'Refresh token berhasil dihapus',
       });
     } catch (error) {
-      if (error.message === 'Refresh token tidak ditemukan') {
-        return failResponse(res, { message: error.message });
-      }
-      return errorResponse(res, { message: error.message });
+      return this._handleTokenError(res, error);
     }
+  };
+
+  _handleAuthError = (res, error) => {
+    if (
+      error.message === 'Username tidak ditemukan' ||
+      error.message === 'Password salah'
+    ) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Kredensial yang Anda berikan salah',
+      });
+    }
+
+    return res.status(500).json({
+      status: 'error',
+      message: error.message,
+    });
+  };
+
+  _handleTokenError = (res, error) => {
+    if (
+      error.message === 'Refresh token tidak valid' ||
+      error.message === 'Refresh token tidak ditemukan'
+    ) {
+      return res.status(400).json({
+        status: 'fail',
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      status: 'error',
+      message: error.message,
+    });
   };
 }
 

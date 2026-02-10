@@ -1,20 +1,16 @@
 const PlaylistsService = require('../../services/PlaylistsService');
 const SongsService = require('../../services/SongsService');
-const { PlaylistSongPayloadSchema } = require('../../utils/validator');
-const {
-  successResponse,
-  failResponse,
-  errorResponse,
-  forbiddenResponse,
-} = require('../../utils/response');
+const autoBind = require('auto-bind');
 
 class PlaylistsHandler {
   constructor() {
     this._service = new PlaylistsService();
     this._songsService = new SongsService();
+
+    autoBind(this);
   }
 
-  postPlaylist = async (req, res) => {
+  async postPlaylist(req, res) {
     try {
       const { name } = req.body;
       const owner = req.user.id;
@@ -23,241 +19,171 @@ class PlaylistsHandler {
 
       return res.status(201).json({
         status: 'success',
-        data: {
-          playlistId,
-        },
+        data: { playlistId },
       });
     } catch (error) {
-      return errorResponse(res, { message: error.message });
+      return this._handleError(res, error);
     }
-  };
+  }
 
-  // Di handler getPlaylists, tambahkan logging untuk debug
-  getPlaylists = async (req, res) => {
+  async getPlaylists(req, res) {
     try {
       const owner = req.user.id;
-      console.log('Getting playlists for user:', owner);
-
       const playlists = await this._service.getPlaylists(owner);
-      console.log('Found playlists:', playlists.length, playlists);
 
-      return successResponse(res, {
+      return res.status(200).json({
+        status: 'success',
         data: { playlists },
       });
     } catch (error) {
-      return errorResponse(res, { message: error.message });
+      return this._handleError(res, error);
     }
-  };
+  }
 
-  deletePlaylistById = async (req, res) => {
+  async deletePlaylistById(req, res) {
     try {
       const { id } = req.params;
       const userId = req.user.id;
 
-      // Verify ownership
       await this._service.verifyPlaylistOwner(id, userId);
-
       await this._service.deletePlaylistById(id);
 
-      return successResponse(res, {
+      return res.status(200).json({
+        status: 'success',
         message: 'Playlist berhasil dihapus',
       });
     } catch (error) {
-      if (error.message === 'Playlist tidak ditemukan') {
-        return failResponse(res, {
-          message: error.message,
-          statusCode: 404,
-        });
-      }
-      if (error.message === 'Anda bukan pemilik playlist ini') {
-        return forbiddenResponse(res, { message: error.message });
-      }
-      return errorResponse(res, { message: error.message });
+      return this._handleError(res, error);
     }
-  };
+  }
 
-  postSongToPlaylist = async (req, res) => {
+  async postSongToPlaylist(req, res) {
     try {
       const { id: playlistId } = req.params;
       const { songId } = req.body;
       const userId = req.user.id;
 
-      console.log('\n=== ADD SONG TO PLAYLIST ===');
-      console.log('Playlist ID:', playlistId);
-      console.log('Song ID:', songId);
-      console.log('User ID:', userId);
-
-      // Verify playlist access
       await this._service.verifyPlaylistAccess(playlistId, userId);
-
-      // Verify song exists
-      try {
-        await this._songsService.getSongById(songId);
-      } catch (songError) {
-        console.log('Song not found:', songError.message);
-        return failResponse(res, {
-          message: 'Lagu tidak ditemukan',
-          statusCode: 404,
-        });
-      }
-
-      // Add song to playlist
+      await this._songsService.getSongById(songId);
       await this._service.addSongToPlaylist(playlistId, songId);
 
-      // Add activity - PASTIKAN action = 'add'
-      try {
-        console.log('Adding add activity...');
-        await this._service.addActivity(playlistId, songId, userId, 'add');
-      } catch (activityError) {
-        console.log('Activity error (ignored):', activityError.message);
-        // Ignore jika tabel activities tidak ada
-      }
+      this._addActivityIfExists(playlistId, songId, userId, 'add');
 
-      console.log('Add successful');
       return res.status(201).json({
         status: 'success',
         message: 'Lagu berhasil ditambahkan ke playlist',
       });
     } catch (error) {
-      console.log('Add error:', error.message);
-
-      if (error.message === 'Playlist tidak ditemukan') {
-        return failResponse(res, {
-          message: error.message,
-          statusCode: 404,
-        });
-      }
-      if (error.message === 'Anda tidak memiliki akses ke playlist ini') {
-        return forbiddenResponse(res, { message: error.message });
-      }
-      if (error.message === 'Lagu sudah ada di playlist') {
-        return failResponse(res, { message: error.message });
-      }
-      if (error.message.includes('tidak ditemukan')) {
-        return failResponse(res, {
-          message: 'Playlist atau lagu tidak ditemukan',
-          statusCode: 404,
-        });
-      }
-      return errorResponse(res, { message: error.message });
+      return this._handleError(res, error);
     }
-  };
+  }
 
-  getSongsFromPlaylist = async (req, res) => {
+  async getSongsFromPlaylist(req, res) {
     try {
       const { id } = req.params;
       const userId = req.user.id;
 
-      // Verify playlist access
       await this._service.verifyPlaylistAccess(id, userId);
-
       const playlist = await this._service.getSongsFromPlaylist(id);
 
-      return successResponse(res, {
+      return res.status(200).json({
+        status: 'success',
         data: { playlist },
       });
     } catch (error) {
-      if (error.message === 'Playlist tidak ditemukan') {
-        return failResponse(res, {
-          message: error.message,
-          statusCode: 404,
-        });
-      }
-      if (error.message === 'Anda tidak memiliki akses ke playlist ini') {
-        return forbiddenResponse(res, { message: error.message });
-      }
-      return errorResponse(res, { message: error.message });
+      return this._handleError(res, error);
     }
-  };
+  }
 
-  deleteSongFromPlaylist = async (req, res) => {
+  async deleteSongFromPlaylist(req, res) {
     try {
       const { id: playlistId } = req.params;
       const { songId } = req.body;
       const userId = req.user.id;
 
-      console.log('\n=== DELETE SONG FROM PLAYLIST ===');
-      console.log('Playlist ID:', playlistId);
-      console.log('Song ID:', songId);
-      console.log('User ID:', userId);
-
-      // Verify playlist access
       await this._service.verifyPlaylistAccess(playlistId, userId);
-
-      // Delete song from playlist
       await this._service.deleteSongFromPlaylist(playlistId, songId);
 
-      // Add activity - PASTIKAN action = 'delete'
-      try {
-        console.log('Adding delete activity...');
-        await this._service.addActivity(playlistId, songId, userId, 'delete');
-      } catch (activityError) {
-        console.log('Activity error (ignored):', activityError.message);
-        // Ignore jika tabel activities tidak ada
-      }
+      this._addActivityIfExists(playlistId, songId, userId, 'delete');
 
-      console.log('Delete successful');
-      return successResponse(res, {
+      return res.status(200).json({
+        status: 'success',
         message: 'Lagu berhasil dihapus dari playlist',
       });
     } catch (error) {
-      console.log('Delete error:', error.message);
-
-      if (error.message === 'Playlist tidak ditemukan') {
-        return failResponse(res, {
-          message: error.message,
-          statusCode: 404,
-        });
-      }
-      if (error.message === 'Anda tidak memiliki akses ke playlist ini') {
-        return forbiddenResponse(res, { message: error.message });
-      }
-      if (error.message === 'Lagu tidak ditemukan di playlist') {
-        return failResponse(res, {
-          message: error.message,
-          statusCode: 404,
-        });
-      }
-      if (error.message.includes('tidak ditemukan')) {
-        return failResponse(res, {
-          message: 'Playlist atau lagu tidak ditemukan',
-          statusCode: 404,
-        });
-      }
-      return errorResponse(res, { message: error.message });
+      return this._handleError(res, error);
     }
-  };
+  }
 
-  // Opsional 2: Get activities
-  getActivities = async (req, res) => {
+  async getActivities(req, res) {
     try {
       const { id } = req.params;
       const userId = req.user.id;
 
-      // Verify playlist access
       await this._service.verifyPlaylistAccess(id, userId);
-
       const activities = await this._service.getActivities(id);
 
-      return successResponse(res, {
-        data: {
-          playlistId: id,
-          activities,
-        },
+      return res.status(200).json({
+        status: 'success',
+        data: { playlistId: id, activities },
       });
     } catch (error) {
-      if (error.message === 'Playlist tidak ditemukan') {
-        return failResponse(res, {
-          message: error.message,
-          statusCode: 404,
-        });
-      }
-      if (error.message === 'Anda tidak memiliki akses ke playlist ini') {
-        return forbiddenResponse(res, { message: error.message });
-      }
-      return errorResponse(res, { message: error.message });
+      return this._handleError(res, error);
     }
-  };
+  }
+
+  _handleError(res, error) {
+    const errorHandlers = {
+      'Playlist tidak ditemukan': () => this._sendFail(res, error.message, 404),
+      'Lagu tidak ditemukan': () => this._sendFail(res, error.message, 404),
+      'Lagu tidak ditemukan di playlist': () =>
+        this._sendFail(res, error.message, 404),
+      'Playlist atau lagu tidak ditemukan': () =>
+        this._sendFail(res, error.message, 404),
+      'User tidak ditemukan': () => this._sendFail(res, error.message, 404),
+      'Kolaborasi tidak ditemukan': () =>
+        this._sendFail(res, error.message, 404),
+      'Anda bukan pemilik playlist ini': () =>
+        this._sendForbidden(res, error.message),
+      'Anda tidak memiliki akses ke playlist ini': () =>
+        this._sendForbidden(res, error.message),
+      'Lagu sudah ada di playlist': () =>
+        this._sendFail(res, error.message, 400),
+      'Kolaborasi sudah ada': () => this._sendFail(res, error.message, 400),
+    };
+
+    const handler = errorHandlers[error.message];
+    if (handler) {
+      return handler();
+    }
+
+    return res.status(500).json({
+      status: 'error',
+      message: error.message,
+    });
+  }
+
+  _sendFail(res, message, statusCode = 400) {
+    return res.status(statusCode).json({
+      status: 'fail',
+      message,
+    });
+  }
+
+  _sendForbidden(res, message) {
+    return res.status(403).json({
+      status: 'fail',
+      message,
+    });
+  }
+
+  _addActivityIfExists(playlistId, songId, userId, action) {
+    try {
+      this._service.addActivity(playlistId, songId, userId, action);
+    } catch {
+      // Ignore
+    }
+  }
 }
 
 module.exports = PlaylistsHandler;
