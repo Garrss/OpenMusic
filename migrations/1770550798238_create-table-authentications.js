@@ -14,7 +14,6 @@ exports.up = (pgm) => {
     token: {
       type: 'TEXT',
       notNull: true,
-      primaryKey: true,
     },
   });
 };
