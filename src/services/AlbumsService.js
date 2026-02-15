@@ -72,12 +72,13 @@ class AlbumsService {
 
   async updateAlbumCover(albumId, filename) {
     const query = {
-      text: 'UPDATE albums SET cover = $1 WHERE id = $2',
+      text: 'UPDATE albums SET cover = $1 WHERE id = $2 RETURNING id',
       values: [filename, albumId],
     };
 
-    const result = await this._pool.query(query);
-    if (!result.rowCount) {
+    const result = await db.query(query);
+
+    if (!result.rows.length) {
       throw new Error('Album tidak ditemukan');
     }
 
@@ -90,7 +91,8 @@ class AlbumsService {
       values: [albumId],
     };
 
-    const result = await this._pool.query(query);
+    const result = await db.query(query);
+
     if (!result.rows.length) {
       throw new Error('Album tidak ditemukan');
     }

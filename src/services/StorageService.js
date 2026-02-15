@@ -14,16 +14,13 @@ class StorageService {
     }
   }
 
-  // Perbaiki method writeFile di StorageService.js
   async writeFile(file, meta) {
     const filename = `${Date.now()}-${meta.filename}`;
     const filePath = path.join(this._folder, filename);
 
-    // Pastikan folder uploads/covers ada
-    await fs.promises.mkdir(this._folder, { recursive: true });
-
-    // Tulis file
-    await fs.promises.writeFile(filePath, file.buffer);
+    // 🔥 gunakan fs langsung (bukan fs.promises)
+    await fs.mkdir(this._folder, { recursive: true });
+    await fs.writeFile(filePath, file.buffer);
 
     return filename;
   }
@@ -32,12 +29,12 @@ class StorageService {
     if (!filename) return;
 
     const filePath = path.join(this._folder, filename);
+
     try {
-      await fs.promises.access(filePath);
-      await fs.promises.unlink(filePath);
-    } catch (error) {
-      // File tidak ada, abaikan
-      console.log('File tidak ditemukan:', filename);
+      await fs.access(filePath);
+      await fs.unlink(filePath);
+    } catch {
+      // abaikan jika file tidak ada
     }
   }
 }
