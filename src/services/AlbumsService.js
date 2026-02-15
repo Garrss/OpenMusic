@@ -69,6 +69,34 @@ class AlbumsService {
     const result = await db.query(query);
     return result.rows;
   }
+
+  async updateAlbumCover(albumId, filename) {
+    const query = {
+      text: 'UPDATE albums SET cover = $1 WHERE id = $2',
+      values: [filename, albumId],
+    };
+
+    const result = await this._pool.query(query);
+    if (!result.rowCount) {
+      throw new Error('Album tidak ditemukan');
+    }
+
+    return result.rows[0];
+  }
+
+  async getAlbumCover(albumId) {
+    const query = {
+      text: 'SELECT cover FROM albums WHERE id = $1',
+      values: [albumId],
+    };
+
+    const result = await this._pool.query(query);
+    if (!result.rows.length) {
+      throw new Error('Album tidak ditemukan');
+    }
+
+    return result.rows[0].cover;
+  }
 }
 
 module.exports = AlbumsService;

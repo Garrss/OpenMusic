@@ -1,11 +1,13 @@
 class AlbumsHandler {
-  constructor(service) {
-    this._service = service;
+  constructor(albumsService, storageService) {
+    this._service = albumsService;
+    this._storageService = storageService;
   }
 
   postAlbum = async (req, res) => {
     try {
       const { name, year } = req.body;
+
       const albumId = await this._service.addAlbum({ name, year });
 
       return res.status(201).json({
@@ -30,7 +32,12 @@ class AlbumsHandler {
         status: 'success',
         data: {
           album: {
-            ...album,
+            id: album.id,
+            name: album.name,
+            year: album.year,
+            coverUrl: album.cover
+              ? `${process.env.BASE_URL}/uploads/${album.cover}`
+              : null,
             songs: songs.map((song) => ({
               id: song.id,
               title: song.title,
@@ -92,6 +99,53 @@ class AlbumsHandler {
         return res.status(404).json({
           status: 'fail',
           message: 'Album gagal dihapus. Id tidak ditemukan',
+        });
+      }
+      return res.status(500).json({
+        status: 'error',
+        message: error.message,
+      });
+    }
+  };
+
+  postAlbumCover = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const cover = req.file;
+
+      if (!cover) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'File cover harus diunggah',
+        });
+      }
+
+      // Cek apakah album ada
+      await this._service.getAlbumById(id);
+
+      // Hapus cover lama jika ada
+      const oldCover = await this._service.getAlbumCover(id);
+      if (oldCover) {
+        await this._storageService.deleteFile(oldCover);
+      }
+
+      // Simpan file baru
+      const filename = await this._storageService.writeFile(cover, {
+        filename: cover.originalname,
+      });
+
+      // Update database
+      await this._service.updateAlbumCover(id, filename);
+
+      return res.status(201).json({
+        status: 'success',
+        message: 'Sampul berhasil diunggah',
+      });
+    } catch (error) {
+      if (error.message === 'Album tidak ditemukan') {
+        return res.status(404).json({
+          status: 'fail',
+          message: error.message,
         });
       }
       return res.status(500).json({

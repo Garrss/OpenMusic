@@ -8,6 +8,7 @@ const usersRoutes = require('./api/users/routes');
 const authenticationsRoutes = require('./api/authentications/routes');
 const playlistsRoutes = require('./api/playlists/routes');
 const collaborationsRoutes = require('./api/collaborations/routes');
+const exportsRoutes = require('./api/exports/routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,6 +16,8 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use('/uploads', express.static(process.env.UPLOAD_DIR));
 
 // CORS Middleware
 app.use((req, res, next) => {
@@ -34,6 +37,7 @@ app.use('/users', usersRoutes);
 app.use('/authentications', authenticationsRoutes);
 app.use('/playlists', playlistsRoutes);
 app.use('/collaborations', collaborationsRoutes);
+app.use('/export', exportsRoutes);
 
 // Health Check
 app.get('/', (req, res) => {
@@ -53,7 +57,7 @@ app.use((req, res,) => {
 });
 
 // Error handling middleware
-app.use((err, req, res,) => {
+app.use((err, req, res, next) => {
   console.error('Server Error:', err.message);
   res.status(500).json({
     status: 'error',
