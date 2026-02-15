@@ -2,23 +2,37 @@ const redis = require('redis');
 
 class CacheService {
   constructor() {
-    this._client = redis.createClient({ url: process.env.REDIS_SERVER });
-    this._client.on('error', (err) =>
-      console.error('Redis client error:', err),
-    );
+    const redisServer = process.env.REDIS_SERVER || 'localhost';
+
+    const redisUrl = redisServer.startsWith('redis://')
+      ? redisServer
+      : `redis://${redisServer}:6379`;
+
+    this._client = redis.createClient({ url: redisUrl });
+
+    this._client.on('error', (error) => {
+      console.error('Redis client error:', error);
+    });
+
     this._client.connect();
   }
 
   async set(key, value, expirationInSeconds = 1800) {
-    await this._client.set(key, value, { EX: expirationInSeconds });
+    await this._client.set(key, value, {
+      EX: expirationInSeconds,
+    });
   }
 
   async get(key) {
-    return await this._client.get(key);
+    return this._client.get(key);
   }
 
   async delete(key) {
     await this._client.del(key);
+  }
+
+  async close() {
+    await this._client.quit();
   }
 }
 
