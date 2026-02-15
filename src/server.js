@@ -16,10 +16,9 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.use('/uploads', express.static(process.env.UPLOAD_DIR));
 
-// CORS Middleware
+// CORS
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header(
@@ -40,24 +39,24 @@ app.use('/collaborations', collaborationsRoutes);
 app.use('/export', exportsRoutes);
 
 // Health Check
-app.get('/', (req, res) => {
+app.get('/', (req, res) =>
   res.json({
     message: 'OpenMusic API V2',
     version: '2.0.0',
     status: 'running',
-  });
-});
+  }),
+);
 
-// 404 Handler - SEDERHANA TANPA PATTERN
-app.use((req, res,) => {
+// 404 Handler
+app.use((req, res) =>
   res.status(404).json({
     status: 'fail',
     message: 'Route tidak ditemukan',
-  });
-});
+  }),
+);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
+// Global Error Handler
+app.use((err, req, res) => {
   console.error('Server Error:', err.message);
   res.status(500).json({
     status: 'error',
@@ -65,6 +64,7 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`Server berjalan pada http://localhost:${PORT}`);
   console.log('OpenMusic API V2 Ready!');

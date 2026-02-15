@@ -5,65 +5,53 @@ const db = require('./config/database');
 
 class PlaylistExporter {
   constructor() {
-    // Deteksi environment
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // Konfigurasi SMTP yang fleksibel
     const smtpConfig = {
       host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT),
-      secure: process.env.SMTP_SECURE === 'true', // Untuk port 465
+      port: parseInt(process.env.SMTP_PORT, 10),
+      secure: process.env.SMTP_SECURE === 'true',
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,
       },
+      ...(isProduction
+        ? {}
+        : {
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 30000,
+          tls: { rejectUnauthorized: false },
+        }),
     };
 
-    // Untuk Mailtrap/Ethereal, secure harus false
-    if (
-      process.env.SMTP_HOST.includes('mailtrap') ||
-      process.env.SMTP_HOST.includes('ethereal')
-    ) {
+    if (/mailtrap|ethereal/i.test(process.env.SMTP_HOST)) {
       smtpConfig.secure = false;
       smtpConfig.requireTLS = true;
-    }
-
-    // Untuk development, tambahkan timeout
-    if (!isProduction) {
-      smtpConfig.connectionTimeout = 10000;
-      smtpConfig.greetingTimeout = 10000;
-      smtpConfig.socketTimeout = 30000;
-      smtpConfig.tls = {
-        rejectUnauthorized: false,
-      };
     }
 
     this._transporter = nodemailer.createTransport(smtpConfig);
   }
 
   async getPlaylistData(playlistId) {
-    const playlistQuery = {
-      text: `SELECT p.id, p.name, u.username 
-             FROM playlists p 
-             JOIN users u ON p.owner = u.id 
-             WHERE p.id = $1`,
-      values: [playlistId],
-    };
+    const playlistResult = await db.query(
+      `SELECT p.id, p.name, u.username 
+       FROM playlists p 
+       JOIN users u ON p.owner = u.id 
+       WHERE p.id = $1`,
+      [playlistId],
+    );
 
-    const playlistResult = await db.query(playlistQuery);
-    if (!playlistResult.rows.length) {
+    if (!playlistResult.rows.length)
       throw new Error('Playlist tidak ditemukan');
-    }
 
-    const songsQuery = {
-      text: `SELECT s.id, s.title, s.performer 
-             FROM songs s 
-             JOIN playlist_songs ps ON s.id = ps.song_id 
-             WHERE ps.playlist_id = $1`,
-      values: [playlistId],
-    };
-
-    const songsResult = await db.query(songsQuery);
+    const songsResult = await db.query(
+      `SELECT s.id, s.title, s.performer 
+       FROM songs s 
+       JOIN playlist_songs ps ON s.id = ps.song_id 
+       WHERE ps.playlist_id = $1`,
+      [playlistId],
+    );
 
     return {
       playlist: {
@@ -95,55 +83,42 @@ class PlaylistExporter {
       ],
     };
 
-    try {
-      const info = await this._transporter.sendMail(mailOptions);
-      console.log('Email sent:', info.messageId);
+    const info = await this._transporter.sendMail(mailOptions);
+    console.log('Email sent:', info.messageId);
 
-      // Untuk Ethereal/Mailtrap, tampilkan URL preview
-      if (info.messageId && info.envelope) {
-        console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
-      }
-
-      return info;
-    } catch (error) {
-      console.error('Error sending email:', error.message);
-      throw error;
+    if (info.messageId && info.envelope) {
+      console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
     }
+
+    return info;
   }
 
   async consumeMessages() {
-    try {
-      const connection = await amqp.connect(process.env.RABBITMQ_SERVER);
-      const channel = await connection.createChannel();
+    const connection = await amqp.connect(process.env.RABBITMQ_SERVER);
+    const channel = await connection.createChannel();
+    await channel.assertQueue('export:playlist', { durable: true });
 
-      await channel.assertQueue('export:playlist', { durable: true });
+    console.log('Consumer is waiting for messages...');
 
-      console.log('Consumer is waiting for messages...');
+    channel.consume('export:playlist', async (msg) => {
+      if (!msg) return;
 
-      channel.consume('export:playlist', async (msg) => {
-        if (msg !== null) {
-          try {
-            const { playlistId, targetEmail } = JSON.parse(
-              msg.content.toString(),
-            );
-            console.log(
-              `Processing export for playlist ${playlistId} to ${targetEmail}`,
-            );
+      try {
+        const { playlistId, targetEmail } = JSON.parse(msg.content.toString());
+        console.log(
+          `Processing export for playlist ${playlistId} to ${targetEmail}`,
+        );
 
-            const playlistData = await this.getPlaylistData(playlistId);
-            await this.sendEmail(targetEmail, playlistData);
+        const playlistData = await this.getPlaylistData(playlistId);
+        await this.sendEmail(targetEmail, playlistData);
 
-            channel.ack(msg);
-            console.log('Export completed successfully');
-          } catch (error) {
-            console.error('Error processing message:', error.message);
-            channel.nack(msg, false, false);
-          }
-        }
-      });
-    } catch (error) {
-      console.error('RabbitMQ connection error:', error.message);
-    }
+        channel.ack(msg);
+        console.log('Export completed successfully');
+      } catch (error) {
+        console.error('Error processing message:', error.message);
+        channel.nack(msg, false, false);
+      }
+    });
   }
 
   async start() {
@@ -152,8 +127,7 @@ class PlaylistExporter {
   }
 }
 
-const exporter = new PlaylistExporter();
-exporter.start().catch((error) => {
-  console.error('Fatal error:', error.message);
+new PlaylistExporter().start().catch((err) => {
+  console.error('Fatal error:', err.message);
   process.exit(1);
 });

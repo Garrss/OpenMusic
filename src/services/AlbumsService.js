@@ -12,7 +12,7 @@ class AlbumsService {
 
     const result = await db.query(query);
 
-    if (!result.rows[0].id) {
+    if (!result.rows[0]?.id) {
       throw new Error('Album gagal ditambahkan');
     }
 

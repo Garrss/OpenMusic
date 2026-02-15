@@ -5,17 +5,12 @@ class ProducerService {
     const connection = await amqp.connect(process.env.RABBITMQ_SERVER);
     const channel = await connection.createChannel();
 
-    await channel.assertQueue(queue, {
-      durable: true, // Queue akan survive jika RabbitMQ restart
-    });
-
+    await channel.assertQueue(queue, { durable: true });
     await channel.sendToQueue(queue, Buffer.from(message));
 
     console.log(`Message sent to queue ${queue}: ${message}`);
 
-    setTimeout(() => {
-      connection.close();
-    }, 500);
+    setTimeout(() => connection.close(), 500);
   }
 }
 

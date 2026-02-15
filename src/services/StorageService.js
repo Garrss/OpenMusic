@@ -18,7 +18,6 @@ class StorageService {
     const filename = `${Date.now()}-${meta.filename}`;
     const filePath = path.join(this._folder, filename);
 
-    // 🔥 gunakan fs langsung (bukan fs.promises)
     await fs.mkdir(this._folder, { recursive: true });
     await fs.writeFile(filePath, file.buffer);
 
@@ -29,12 +28,11 @@ class StorageService {
     if (!filename) return;
 
     const filePath = path.join(this._folder, filename);
-
     try {
       await fs.access(filePath);
       await fs.unlink(filePath);
     } catch {
-      // abaikan jika file tidak ada
+      // Abaikan jika file tidak ada
     }
   }
 }

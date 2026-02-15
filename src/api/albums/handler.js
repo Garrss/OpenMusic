@@ -1,13 +1,16 @@
+const autoBind = require('auto-bind');
+
 class AlbumsHandler {
   constructor(albumsService, storageService) {
     this._service = albumsService;
     this._storageService = storageService;
+
+    autoBind(this);
   }
 
-  postAlbum = async (req, res) => {
+  async postAlbum(req, res) {
     try {
       const { name, year } = req.body;
-
       const albumId = await this._service.addAlbum({ name, year });
 
       return res.status(201).json({
@@ -20,11 +23,12 @@ class AlbumsHandler {
         message: error.message,
       });
     }
-  };
+  }
 
-  getAlbumById = async (req, res) => {
+  async getAlbumById(req, res) {
     try {
       const { id } = req.params;
+
       const album = await this._service.getAlbumById(id);
       const songs = await this._service.getSongsByAlbumId(id);
 
@@ -38,10 +42,10 @@ class AlbumsHandler {
             coverUrl: album.cover
               ? `${process.env.BASE_URL}/uploads/${album.cover}`
               : null,
-            songs: songs.map((song) => ({
-              id: song.id,
-              title: song.title,
-              performer: song.performer,
+            songs: songs.map(({ id, title, performer }) => ({
+              id,
+              title,
+              performer,
             })),
           },
         },
@@ -50,17 +54,18 @@ class AlbumsHandler {
       if (error.message === 'Album tidak ditemukan') {
         return res.status(404).json({
           status: 'fail',
-          message: 'Album tidak ditemukan',
+          message: error.message,
         });
       }
+
       return res.status(500).json({
         status: 'error',
         message: error.message,
       });
     }
-  };
+  }
 
-  putAlbumById = async (req, res) => {
+  async putAlbumById(req, res) {
     try {
       const { id } = req.params;
       const { name, year } = req.body;
@@ -78,16 +83,18 @@ class AlbumsHandler {
           message: 'Gagal memperbarui album. Id tidak ditemukan',
         });
       }
+
       return res.status(500).json({
         status: 'error',
         message: error.message,
       });
     }
-  };
+  }
 
-  deleteAlbumById = async (req, res) => {
+  async deleteAlbumById(req, res) {
     try {
       const { id } = req.params;
+
       await this._service.deleteAlbumById(id);
 
       return res.status(200).json({
@@ -101,14 +108,15 @@ class AlbumsHandler {
           message: 'Album gagal dihapus. Id tidak ditemukan',
         });
       }
+
       return res.status(500).json({
         status: 'error',
         message: error.message,
       });
     }
-  };
+  }
 
-  postAlbumCover = async (req, res) => {
+  async postAlbumCover(req, res) {
     try {
       const { id } = req.params;
       const cover = req.file;
@@ -120,21 +128,17 @@ class AlbumsHandler {
         });
       }
 
-      // Cek apakah album ada
       await this._service.getAlbumById(id);
 
-      // Hapus cover lama jika ada
       const oldCover = await this._service.getAlbumCover(id);
       if (oldCover) {
         await this._storageService.deleteFile(oldCover);
       }
 
-      // Simpan file baru
       const filename = await this._storageService.writeFile(cover, {
         filename: cover.originalname,
       });
 
-      // Update database
       await this._service.updateAlbumCover(id, filename);
 
       return res.status(201).json({
@@ -148,12 +152,13 @@ class AlbumsHandler {
           message: error.message,
         });
       }
+
       return res.status(500).json({
         status: 'error',
         message: error.message,
       });
     }
-  };
+  }
 }
 
 module.exports = AlbumsHandler;
